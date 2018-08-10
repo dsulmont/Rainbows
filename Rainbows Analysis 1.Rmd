@@ -1,0 +1,112 @@
+---
+title: "Rainbows in Latin America"
+author: "David Sulmont"
+date: "10 de agosto de 2018"
+output: html_document
+---
+
+## Get Data
+
+```{r, message=FALSE}
+# load("WVS_81_14.rdata")
+
+# data_wvs <- WVS_Longitudinal_1981_2014_R_v2015_04_18
+
+## Subset Latin America
+
+#pais_al <- c(32, 76, 152, 170, 214, 218, 222, 320, 484, 604, 858, 862)
+
+# wvs_al <- subset(data_wvs, data_wvs$S003 %in% pais_al)
+
+# save(wvs_al, file = "WVS_AMLAT.Rdata")
+
+load(url("https://www.dropbox.com/s/a6vd9vys3pssavd/WVS_AMLAT.Rdata?dl=1"))
+
+library(car)
+library(stargazer)
+```
+
+## Recode & Label Variables
+
+### Country, year, wave
+```{r}
+wvs_al$pais <- factor(wvs_al$S003, labels = c("Argentina", "Brazil", "Chile", "Colombia",
+                                              "Dom. Rep.", "Ecuador", "El Salvador", 
+                                              "Guatemala", "Mexico", "Peru", "Uruguay",
+                                              "Venezuela"))
+
+wvs_al$wave <- factor(wvs_al$S002, labels = c("1981-1984", "1989-1993", "1994-1998",
+                                              "1999-2004", "2005-2009", "2010-2014"))
+
+wvs_al$year <- wvs_al$S020
+
+wvs_al$ola <- as.numeric(wvs_al$wave)
+
+```
+
+
+### Dependent variables
+
+```{r}
+table(wvs_al$A124_09)
+
+wvs_al$neig_homo <- factor(recode(wvs_al$A124_09, "-4=NA; 0=0; 1=1"),
+                           labels = c("Not Mentioned", "Mentioned"))
+
+wvs_al$just_homo <- recode(wvs_al$F118, "lo:0 = NA")
+
+```
+
+
+
+### Independent variables
+
+```{r}
+wvs_al$gender <- factor(recode(wvs_al$X001, "lo:0 = NA"),
+                     labels = c("Male", "Female"))
+
+wvs_al$educ <- as.numeric(recode(wvs_al$X025, "-4=NA; -3=0; -2:-1=NA"))
+
+wvs_al$age <- recode(wvs_al$X003, "lo:0 = NA")
+
+wvs_al$imp_god <- recode(wvs_al$F063, "lo:0=NA")
+
+wvs_al$relig_serv <-recode(wvs_al$F028, "lo:0=NA; 1=6; 2=5; 3=4; 4:5=3; 6=2; 7=1; 8=0")
+
+wvs_al$relig_servF <- factor(wvs_al$relig_serv, labels = c("Never", "Less than once a year",
+                                                           "Once a year", "Special holy days",
+                                                           "Once a month", "Once a week",
+                                                           "More than once a week"))
+wvs_al$posmat12 <- wvs_al$Y001
+
+wvs_al$posmat4 <- factor(recode(wvs_al$Y002, "-5=NA"), labels = c("Materialist",
+                                                                  "Mixed",
+                                                                  "Postmaterialist"))
+```
+
+
+# Regression Models
+
+## Dep. Variable = Justification of homosexuality
+
+```{r}
+modelo1 <- lm(just_homo~pais+gender+age+educ+imp_god+posmat12, 
+              data = subset(wvs_al, wvs_al$ola == 3))
+
+modelo2 <- lm(just_homo~pais+gender+age+educ+imp_god+posmat12, 
+              data = subset(wvs_al, wvs_al$ola == 4))
+
+modelo3 <- lm(just_homo~pais+gender+age+educ+imp_god+posmat12, 
+              data = subset(wvs_al, wvs_al$ola == 5))
+
+modelo4 <- lm(just_homo~pais+gender+age+educ+imp_god+posmat12, 
+              data = subset(wvs_al, wvs_al$ola == 6))
+
+
+stargazer(modelo1, modelo2, modelo3, modelo4, type = "text", omit.stat = c("f", "rsq", "ser"))
+```
+
+
+
+
+
