@@ -1,0 +1,295 @@
+---
+title: "Rainbows in Latin America"
+author: "David Sulmont"
+date: "10 de agosto de 2018"
+output: html_document
+---
+
+## Get Data
+
+```{r, message=FALSE}
+# load("WVS_81_14.rdata")
+
+# data_wvs <- WVS_Longitudinal_1981_2014_R_v2015_04_18
+
+## Subset Latin America
+
+#pais_al <- c(32, 76, 152, 170, 214, 218, 222, 320, 484, 604, 858, 862)
+
+# wvs_al <- subset(data_wvs, data_wvs$S003 %in% pais_al)
+
+# save(wvs_al, file = "WVS_AMLAT.Rdata")
+
+load(url("https://www.dropbox.com/s/a6vd9vys3pssavd/WVS_AMLAT.Rdata?dl=1"))
+
+library(car)
+library(stargazer)
+library(plyr)
+```
+
+## Recode & Label Variables
+
+### Country, year, wave
+```{r}
+wvs_al$pais <- factor(wvs_al$S003, labels = c("Argentina", "Brazil", "Chile", "Colombia",
+                                              "Dom. Rep.", "Ecuador", "El Salvador", 
+                                              "Guatemala", "Mexico", "Peru", "Uruguay",
+                                              "Venezuela"))
+
+wvs_al$wave <- factor(wvs_al$S002, labels = c("1981-1984", "1989-1993", "1994-1998",
+                                              "1999-2004", "2005-2009", "2010-2014"))
+
+wvs_al$year <- wvs_al$S020
+
+wvs_al$ola <- as.numeric((wvs_al$wave))
+
+sub.data.wvs <- subset(wvs_al, wvs_al$ola > 2 & wvs_al$pais != "El Salvador")
+
+tab1 <- table(droplevels(sub.data.wvs$pais), droplevels(sub.data.wvs$wave))
+
+## Country - wave
+tab1[tab1 == 0] <- "n/a"
+
+library(xtable)
+
+print.xtable(xtable(tab1, caption = c("WVS: Sample Size by Country and Wave")),
+                    caption.placement = "top")
+
+## Country - year
+
+library(reshape2)
+
+tab2 <- dcast(ddply(sub.data.wvs, ~pais+wave, summarise, anho = max(year)),
+              pais ~ wave, mean)
+
+tab2[is.na(tab2)] <- " "
+
+
+print.xtable(xtable(tab2, caption = c("WVS: Year of Survey, by Country and Wave")),
+             caption.placement = "top")
+
+```
+
+
+### Dependent variables
+
+```{r}
+wvs_al$neig_homo <- factor(recode(wvs_al$A124_09, "-4=NA; 0=0; 1=1"),
+                           labels = c("Not Mentioned", "Mentioned"))
+
+wvs_al$just_homo <- recode(wvs_al$F118, "lo:0 = NA")
+
+```
+
+### Independent variable 
+
+```{r}
+wvs_al$gender <- factor(recode(wvs_al$X001, "lo:0 = NA"),
+                     labels = c("Male", "Female"))
+
+wvs_al$educ <- as.numeric(recode(wvs_al$X025, "-4=NA; -3=0; -2:-1=NA"))
+
+wvs_al$age <- recode(wvs_al$X003, "lo:0 = NA")
+
+wvs_al$est_civil <- recode(wvs_al$X007, "-4:0 = NA; 1=1; 2=2; 3:4=3; 5=4; 6=5")
+
+wvs_al$est_civil <- factor(wvs_al$est_civil, labels = c("Married", "Cohab.", "Sep / Div.",
+                                                 "Widowed", "Single"))
+
+wvs_al$single <- recode(wvs_al$X007, "-4:0 = NA; 6=1; else = 0")
+
+wvs_al$single <- factor(wvs_al$single, labels = c("Other", "Single"))
+
+
+wvs_al$married <- recode(wvs_al$X007, "-4:0 = NA; 1=1; else = 0")
+
+wvs_al$married <- factor(wvs_al$married, labels = c("Other", "Married"))
+
+wvs_al$imp_god <- recode(wvs_al$F063, "lo:0=NA")
+
+wvs_al$relig_serv <-recode(wvs_al$F028, "lo:0=NA; 1=6; 2=5; 3=4; 4:5=3; 6=2; 7=1; 8=0")
+
+wvs_al$relig_servF <- factor(wvs_al$relig_serv, labels = c("Never", "Less than once a year",
+                                                           "Once a year", "Special holy days",
+                                                           "Once a month", "Once a week",
+                                                           "More than once a week"))
+wvs_al$posmat12 <- wvs_al$Y001
+
+wvs_al$sig.relig1 <- factor(recode(wvs_al$F200, "lo:0 = NA"),
+                            labels = c("Follow Norms", "Good to other people"))
+
+wvs_al$sig.relig2 <- factor(recode(wvs_al$F201, "lo:0 = NA"),
+                            labels = c("After death", "This world"))
+
+wvs_al$dem.relig <- factor(recode(wvs_al$F025, "64=1; 15=1; 17:2; 25=2; 39=2; 48=2;
+                                   60=2; 62=2; 68=2; 0=4; -1=NA; -2=NA; else = 3"),
+                            labels = c("Catholic", "Other Christian", "Other",
+                                      "None"))
+
+wvs_al$posmat4 <- factor(recode(wvs_al$Y002, "-5=NA"), labels = c("Materialist",
+                                                                  "Mixed",
+                                                                  "Postmaterialist"))
+
+wv.prog.leg <- c()
+
+wv.prog.leg[wvs_al$pais == "Uruguay" & wvs_al$year > 2007] <- 1
+wv.prog.leg[wvs_al$pais == "Brazil" & wvs_al$year > 2010] <- 1
+wv.prog.leg[wvs_al$pais == "Argentina" & wvs_al$year > 2010] <- 1
+
+wv.prog.leg[is.na(wv.prog.leg)] <- 0
+
+wvs_al$prog.leg <- wv.prog.leg
+
+```
+
+# Descriptive Statistics
+
+```{r}
+library(Rmisc)
+
+desc.just_homo <- summarySE(data = subset(wvs_al, ola > 2 & wvs_al$pais != "El Salvador"),
+                            measurevar = "just_homo", groupvars = c("pais", "wave"), 
+                            na.rm = T)
+library(ggplot2)
+
+graf.just.homo1 <- ggplot(na.omit(desc.just_homo), aes(reorder(pais, just_homo), just_homo)) + 
+  geom_point() +
+  geom_errorbar(aes(ymin = just_homo - ci, ymax = just_homo + ci)) +
+  facet_wrap(~wave) + coord_flip() + xlab("") + ylab("Level of justification") +
+  ggtitle("WVS: Homosexuality is Justifiable, by Country and Wave \n(Mean and 95% CI)") + theme_bw()
+
+graf.just.homo1
+
+png("just_homo1.png", width = 900, height = 700, res = 120)
+print(graf.just.homo1)
+dev.off()
+
+wvs_al$neig_homo2 <- as.numeric(wvs_al$neig_homo)-1
+
+desc.neig_homo <- summarySE(data = subset(wvs_al, ola > 2 & wvs_al$pais != "El Salvador"),
+                            measurevar = "neig_homo2", groupvars = c("pais", "wave"),
+                            na.rm = T)
+
+graf.neig.homo1 <- ggplot(na.omit(desc.neig_homo), aes(reorder(pais, neig_homo2), neig_homo2)) + 
+  geom_point() +
+  geom_errorbar(aes(ymin = neig_homo2 - ci, ymax = neig_homo2 + ci)) +
+  facet_wrap(~wave) + coord_flip() + xlab("") + ylab("Proportion of Respondents") +
+  ggtitle("WVS: Don't want Homosexuals as Neighbors, by Country and Wave \n(Proportion and 95% CI)") + theme_bw()
+
+graf.neig.homo1
+
+png("neig_homo1.png", width = 900, height = 700, res = 120)
+print(graf.neig.homo1)
+dev.off()
+
+```
+
+### Comparing countries 20 years
+
+```{r}
+sub.pais <- c("Argentina", "Chile", "Colombia", "Mexico", "Peru", "Uruguay")
+
+des2.just_homo <- subset(desc.just_homo, (desc.just_homo$wave =="1994-1998" | desc.just_homo$wave =="2010-2014")
+       & desc.just_homo$pais %in% sub.pais)
+
+des2.neig_homo <- subset(desc.neig_homo, 
+                         (desc.neig_homo$wave =="1994-1998" | 
+                            desc.neig_homo$wave =="2010-2014")
+                         & desc.neig_homo$pais %in% sub.pais)
+
+summarySE(des2.just_homo, measurevar = "just_homo", groupvars = "wave")
+summarySE(des2.neig_homo, measurevar = "neig_homo2", groupvars = "wave")
+
+
+graf.just.homo2 <- ggplot(des2.just_homo, aes(wave, just_homo)) + 
+  geom_point() +
+  geom_errorbar(aes(ymin = just_homo - ci, ymax = just_homo + ci),
+                 width = 0.15) + facet_wrap(pais~.) + xlab("Wave") +
+  ylab("Level of justification") +
+  ggtitle("WVS 1994-1998 & 2010-2014: Homosexuality is Justifiable, \nby Country and Wave (Mean and 95% CI)") + theme_bw()
+
+graf.just.homo2
+
+png("just_homo2.png", width = 900, height = 700, res = 120)
+print(graf.just.homo2)
+dev.off()
+
+graf.neig.homo2 <- ggplot(des2.neig_homo, aes(wave, neig_homo2)) + 
+  geom_point() +
+  geom_errorbar(aes(ymin = neig_homo2 - ci, ymax = neig_homo2 + ci),
+                width = 0.15) + facet_wrap(pais~.) + xlab("Wave") +
+  ylab("Proportion of respondents") + ggtitle("WVS 1994-1998 & 2010-2014: Don't want Homosexuals as Neighbours, \nby Country and Wave (Proportion and 95% CI)") + theme_bw()
+
+graf.neig.homo2
+
+png("neig_homo2.png", width = 900, height = 700, res = 120)
+print(graf.neig.homo2)
+dev.off()
+
+
+```
+
+
+# Regression Models
+
+## Data Base for LME
+
+```{r}
+library(lme4)
+
+cod.pais <- substr(wvs_al$pais, 1,3)
+cod.pais[cod.pais == "El "] <- "ElS"
+
+id.pais <- paste(cod.pais, wvs_al$year, sep = "_")
+wvs_al$id.pais <- id.pais
+
+df.wvs.3a6 <- subset(wvs_al, wvs_al$ola > 2)
+
+
+
+```
+
+## MLE - MGLE Regressions
+
+```{r}
+modelo.just_homo1 <- lmer(just_homo~ (1|id.pais) + gender+age+single+educ+dem.relig+imp_god+
+                  posmat12 + prog.leg, 
+                data = df.wvs.3a6)
+
+modelo.just_homo2 <- lmer(just_homo~ (1|id.pais) + gender+age+single+educ+dem.relig*sig.relig1+imp_god+
+                  posmat12 + prog.leg, 
+                data = df.wvs.3a6)
+
+modelo.neig_homo1 <- glmer(neig_homo~ (1|id.pais) + gender+age+single+educ+dem.relig+imp_god+
+                  posmat12 + prog.leg, family = "binomial", 
+                data = df.wvs.3a6)
+
+modelo.neig_homo2 <- glmer(neig_homo~ (1|id.pais) + gender+age+single+educ+dem.relig*sig.relig1+imp_god+
+                  posmat12 + prog.leg, family = "binomial", 
+                data = df.wvs.3a6)
+
+stargazer(modelo.just_homo1, modelo.just_homo2, modelo.neig_homo1,
+          modelo.neig_homo2, type = "text", star.cutoffs = c(0.05, 0.01, 0.001))
+          
+
+stargazer(modelo.just_homo1, modelo.just_homo2, modelo.neig_homo1,
+          modelo.neig_homo2, star.cutoffs = c(0.05, 0.01, 0.001),
+          title = "WVS: Mixed - Effects Regression Models for Justification of Homosexuality and for Homosexuals' as Neighbors",
+          covariate.labels = c("Gender = Female", "Age", "Single / never married",
+                               "Education", "Relig.: Other Christian vs Catholic",
+                               "Relig.: Other vs Catholic", 
+                               "Relig.: None vs Catholic",
+                               "MR: Good to other people vs. Norms",
+                               "Importance of God", "Postmaterialist Index (12 items)",
+                               "Progressive legislation",
+                               "Relig.: Other Christian vs Catholic * MR",
+                               "Relig: Other vs Catholic * MR",
+                               "Relig.: None vs Catholic * MR"),
+          dep.var.labels = c("Justifiable Homosexuality", "No Homosexual Neighbors"), 
+          model.numbers = F,
+          column.labels = c("Waves 2-6","Wave 6", "Waves 2-6", "Wave 6"))
+          
+
+```
+
+

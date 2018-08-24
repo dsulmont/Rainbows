@@ -1,0 +1,233 @@
+---
+title: "Rainbows - Lapop"
+author: "David Sulmont"
+date: "14 de agosto de 2018"
+output: html_document
+---
+
+## Load Data
+
+```{r}
+load("~/Dropbox/Proyectos/WVS_Rainbows/Analysis V2/Rainbows/Lapop_Rainbows.rdata")
+
+df.lapop$pais2 <- factor(df.lapop$pais, labels = c("Mexico", "Guatemala", "El Salvador",
+                                                   "Honduras", "Nicaragua", "Costa Rica",
+                                                   "Panama", "Colombia", "Ecuador", "Bolivia",
+                                                   "Peru", "Paraguay", "Chile", "Uruguay",
+                                                   "Brazil", "Venezuela", "Argentina",
+                                                   "Dom. Rep."))
+table(df.lapop$pais2, df.lapop$year)
+names(df.lapop)
+```
+
+
+## Recoding variables
+
+```{r}
+library(car)
+
+df.lapop$wave <- recode(df.lapop$year, "2007=2006; 2017=2016")
+table(df.lapop$wave)
+
+df.lapop$gender <- factor(df.lapop$q1, labels = c("Male", "Female"))
+
+df.lapop$ecivil2 <- factor(df.lapop$ecivil, labels = c("Single", "Married", "Living together",
+                                                       "Divorced", "Separated", "Widowed", 
+                                                       "Civil Union"))
+
+df.lapop$single <- factor(recode(df.lapop$ecivil, "1=1; NA = NA; else = 0"),
+                          labels = c("Not Single", "Single"))
+
+rel.serv <- (df.lapop$q5a - 5)*-1
+imp.relig <- (df.lapop$q5b - 4)*-1
+
+df.lapop$rel.serv <- rel.serv
+df.lapop$imp.relig <- imp.relig
+
+table(df.lapop$imp.relig, df.lapop$wave)
+
+df.lapop$relig.dem <- factor(df.lapop$relig.dem, 
+                             labels = c("Catholic", "Other Christian",
+                                                  "Other", "None"))
+
+
+table(df.lapop$relig.dem)
+```
+## Sample Size
+
+```{r}
+
+df.lapop3 <- subset(df.lapop, df.lapop$wave > 2004)
+tab1.lap <- table(df.lapop3$pais2, df.lapop3$wave)
+
+## Country - wave
+tab1.lap[tab1.lap == 0] <- "n/a"
+
+library(xtable)
+
+print.xtable(xtable(tab1.lap, caption = c("LAPOP: Sample Size by Country and Wave")),
+                    caption.placement = "top")
+
+```
+
+
+
+## Legislation
+
+New legislation advancements introduced:
+
+```{r}
+
+library(car)
+
+brake.t <- c()
+
+brake.t[df.lapop$pais == 14 & df.lapop$year == 2008] <- 1
+brake.t[df.lapop$pais == 14 & df.lapop$year == 2010] <- 1
+brake.t[df.lapop$pais == 14 & df.lapop$year == 2014] <- 1
+brake.t[df.lapop$pais == 8 & df.lapop$year == 2016] <- 1
+brake.t[df.lapop$pais == 15 & df.lapop$year == 2010] <- 1
+brake.t[df.lapop$pais == 15 & df.lapop$year == 2012] <- 1
+brake.t[df.lapop$pais == 15 & df.lapop$year == 2014] <- 1
+brake.t[df.lapop$pais == 17 & df.lapop$year == 2010] <- 1
+brake.t[df.lapop$pais == 9 & df.lapop$year == 2014] <- 1
+brake.t[df.lapop$pais == 13 & df.lapop$year == 2017] <- 1
+
+brake.t <- recode(brake.t, "NA = 0")
+
+df.lapop$break.t <- brake.t
+
+
+table(df.lapop$pais2, df.lapop$year, df.lapop$break.t)
+
+```
+
+Survey in country with progressive legislation
+
+```{r}
+prog.leg <- c()
+
+prog.leg[df.lapop$pais == 14 & df.lapop$year > 2007] <- 1
+prog.leg[df.lapop$pais == 15 & df.lapop$year > 2010] <- 1
+prog.leg[df.lapop$pais == 17 & df.lapop$year > 2010] <- 1
+prog.leg[df.lapop$pais == 9 & df.lapop$year > 2014] <- 1
+
+prog.leg <- recode(prog.leg, "NA = 0")
+df.lapop$prog.leg <- prog.leg
+
+table(df.lapop$pais2, df.lapop$wave, prog.leg)
+
+
+```
+
+
+## Descriptive
+
+```{r}
+library(Rmisc)
+
+desc.homo_postula <- summarySE(df.lapop, measurevar = "d5", groupvars = c("pais2", "wave"),
+                               na.rm=T)
+
+desc.homo_postula.w <- summarySE(subset(df.lapop, df.lapop$wave > 2004),
+                                 measurevar = "d5", groupvars = "wave", 
+                                 na.rm=T)
+library(ggplot2)
+
+graf.homo.run1 <- ggplot(desc.homo_postula.w, aes(wave, d5)) + geom_point() + geom_line() +
+  ylim(1,10) + xlab("Survey Wave") + ylab("Level of approval") +
+  ggtitle("LAPOP - Latin America: Approval of Homosexuals' Rigth to \nRun for Office by Wave (Mean Level of Approval)") + theme_bw()
+  
+
+graf.homo.run2 <- ggplot(na.omit(subset(desc.homo_postula, desc.homo_postula$wave > 2004)), 
+               aes(reorder(pais2,d5), y=d5)) + geom_point() +
+  geom_errorbar(aes(ymin = d5-ci, ymax = d5+ci)) + facet_wrap(~wave) +
+  coord_flip() + xlab("") + ylab("Level of approval") +
+  ggtitle("LAPOP: Approval of Homosexuals' Rigth to Run for Office, \nby Country and Wave (Mean and 95% CI)") + theme_bw()
+
+
+desc.homo_matri <- summarySE(df.lapop, measurevar = "d6", 
+                             groupvars = c("pais2", "wave"),
+                               na.rm=T)
+
+desc.homo_matri.w <- summarySE(desc.homo_matri, measurevar = "d6", groupvars = "wave",
+                               na.rm = T)
+
+graf.homo.marry1 <- ggplot(na.omit(desc.homo_matri.w), aes(wave, d6)) + 
+  geom_point() + geom_line() +
+  ylim(1,10) + xlab("Survey Wave") + ylab("Level of approval") +
+  ggtitle("LAPOP - Latin America: Approval of Same-Sex Couple's \nRigth to Marry by Wave (Mean Level of Approval)") + theme_bw()
+
+graf.homo.marry2 <- ggplot(na.omit(desc.homo_matri), aes(reorder(pais2,d6), y=d6)) + 
+  geom_point() + geom_errorbar(aes(ymin = d6-ci, ymax = d6+ci)) + facet_wrap(~wave) +
+  coord_flip() + xlab("") + ylab("Level of approval") +
+  ggtitle("LAPOP: Approval of Same-Sex Couple's Rigth to Marry, \nby Country and Wave (Mean and 95% CI)") + theme_bw()
+
+
+graf.homo.run1
+graf.homo.run2
+graf.homo.marry1
+graf.homo.marry2
+
+png("homo_run1.png", width = 900, height = 700, res = 120)
+print(graf.homo.run1)
+dev.off()
+
+png("homo_run2.png", width = 900, height = 700, res = 120)
+print(graf.homo.run2)
+dev.off()
+
+png("homo_marry1.png", width = 900, height = 700, res = 120)
+print(graf.homo.marry1)
+dev.off()
+
+png("homo_marry2.png", width = 900, height = 700, res = 120)
+print(graf.homo.marry2)
+dev.off()
+
+```
+
+## Regression Models
+
+### ID.Pais
+
+```{r}
+
+names(df.lapop)
+
+
+cod.pais2 <- substr(df.lapop$pais2, 1,3)
+cod.pais2[cod.pais2 == "El "] <- "ElS"
+
+df.lapop$id.pais <- paste(cod.pais2, df.lapop$year, sep = "_")
+```
+
+## Regression Models
+
+```{r}
+library(lme4)
+
+lapop.run1 <- lmer(d5~ (1|id.pais) +gender + q2 + single + ed + relig.dem+ imp.relig + prog.leg, 
+                   data = subset(df.lapop, df.lapop$wave > 2008))
+
+lapop.marry1 <- lmer(d6~ (1|id.pais) +gender + q2 + single + ed + relig.dem+ imp.relig + prog.leg, 
+                   data = subset(df.lapop, df.lapop$wave > 2008))
+
+
+
+library(stargazer)
+
+stargazer(lapop.run1, lapop.marry1, type = "text",
+          omit.stat = c("f", "rsq", "ser"))
+
+
+stargazer(lapop.run1, lapop.marry1, 
+          omit.stat = c("f", "rsq", "ser"),
+          star.cutoffs = c(0.05, 0.01, 0.001),
+title = "LAPOP 2010 - 2017: Mixed- Effects Linear Regression Models for Approval of Homosexuals' Right to Run for Office and Same-Sex Couples' Right to Marry",
+          covariate.labels = c("Gender = Female", "Age", "Single / never married", "Education", "Relig.: Other Christian vs Catholic",
+                               "Relig.: Other vs Catholic", 
+                               "Relig.: None vs Catholic",
+                               "Importance of Religion", "Progressive legislation"),
+          dep.var.labels = c("Run for Office", "Marry"))
+```
